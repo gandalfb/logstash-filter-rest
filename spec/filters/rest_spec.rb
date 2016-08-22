@@ -2,13 +2,15 @@ require 'spec_helper'
 require 'logstash/filters/rest'
 
 describe LogStash::Filters::Rest do
-  describe 'Set to Rest Filter Get without params' do
+  describe 'get json' do
+    let(:userId) { 10 }
+    let(:target) { 'rest' }
     let(:config) do
       <<-CONFIG
         filter {
           rest {
             request => {
-              url => 'http://jsonplaceholder.typicode.com/users/10'
+              url => "http://jsonplaceholder.typicode.com/users/#{userId}"
             }
             json => true
           }
@@ -17,35 +19,38 @@ describe LogStash::Filters::Rest do
     end
 
     sample('message' => 'some text') do
-      expect(subject).to include('rest')
-      expect(subject['rest']).to include('id')
-      expect(subject['rest']['id']).to eq(10)
-      expect(subject['rest']).to_not include('fallback')
+      expect(subject).to include(target)
+      expect(subject[target]).to include('id')
+      expect(subject[target]['id']).to eq(userId)
+      expect(subject[target]).to_not include('fallback')
     end
   end
-  describe 'Set to Rest Filter Get without params custom target' do
+  describe 'get json with target' do
+    let(:userId) { 10 }
+    let(:target) { 'testing' }
     let(:config) do
       <<-CONFIG
         filter {
           rest {
             request => {
-              url => 'http://jsonplaceholder.typicode.com/users/10'
+              url => "http://jsonplaceholder.typicode.com/users/#{userId}"
             }
             json => true
-            target => 'testing'
+            target => #{target}
           }
         }
       CONFIG
     end
 
     sample('message' => 'some text') do
-      expect(subject).to include('testing')
-      expect(subject['testing']).to include('id')
-      expect(subject['testing']['id']).to eq(10)
-      expect(subject['testing']).to_not include('fallback')
+      expect(subject).to include(target)
+      expect(subject[target]).to include('id')
+      expect(subject[target]['id']).to eq(userId)
+      expect(subject[target]).to_not include('fallback')
     end
   end
-  describe 'get - no params - sprintf' do
+  describe 'get json sprintf' do
+    let(:target) { 'rest' }
     let(:config) do
       <<-CONFIG
         filter {
@@ -60,16 +65,16 @@ describe LogStash::Filters::Rest do
       CONFIG
     end
 
-    context 'when sending normal messages' do
-      sample(['message' => '9', 'message' => '10', 'message' => '9', 'message' => '8']) do
-        expect(subject).to include('rest')
-        expect(subject['rest']).to include('id')
-        expect(subject['rest']['id']).to eq(event[0]['message'].to_i)
-        expect(subject['rest']).to_not include('fallback')
-      end
+    sample('message' => '9') do
+      expect(subject).to include(target)
+      expect(subject[target]).to include('id')
+      expect(subject[target]['id']).to eq(event[0]['message'].to_i)
+      expect(subject[target]).to_not include('fallback')
     end
   end
-  describe 'Set to Rest Filter Get without params http error' do
+  describe 'get json error 404' do
+    let(:target) { 'rest' }
+    let(:restfailure) { '_restfailure' }
     let(:config) do
       <<-CONFIG
         filter {
@@ -84,11 +89,35 @@ describe LogStash::Filters::Rest do
     end
 
     sample('message' => 'some text') do
-      expect(subject).to_not include('rest')
-      expect(subject['tags']).to include('_restfailure')
+      expect(subject).to_not include(target)
+      expect(subject['tags']).to include(restfailure)
     end
   end
-  describe 'Set to Rest Filter Get with params' do
+  describe 'get json error 404 with tag' do
+    let(:target) { 'rest' }
+    let(:restfailure) { '_chimichanga' }
+    let(:config) do
+      <<-CONFIG
+        filter {
+          rest {
+            request => {
+              url => 'http://httpstat.us/404'
+            }
+            json => true
+            tag_on_rest_failure => #{restfailure}
+          }
+        }
+      CONFIG
+    end
+
+    sample('message' => 'some text') do
+      expect(subject).to_not include(target)
+      expect(subject['tags']).to include(restfailure)
+    end
+  end
+  describe 'get json with params' do
+    let(:userId) { 10 }
+    let(:target) { 'rest' }
     let(:config) do
       <<-CONFIG
         filter {
@@ -96,7 +125,7 @@ describe LogStash::Filters::Rest do
             request => {
               url => 'https://jsonplaceholder.typicode.com/posts'
               params => {
-                userId => 10
+                userId => #{userId}
               }
               headers => {
                 'Content-Type' => 'application/json'
@@ -109,13 +138,14 @@ describe LogStash::Filters::Rest do
     end
 
     sample('message' => 'some text') do
-      expect(subject).to include('rest')
-      expect(subject['rest'][0]).to include('userId')
-      expect(subject['rest'][0]['userId']).to eq(10)
-      expect(subject['rest']).to_not include('fallback')
+      expect(subject).to include(target)
+      expect(subject[target][0]).to include('userId')
+      expect(subject[target][0]['userId']).to eq(userId)
+      expect(subject[target]).to_not include('fallback')
     end
   end
-  describe 'Set to Rest Filter Get with params sprintf' do
+  describe 'get json with params sprintf' do
+    let(:target) { 'rest' }
     let(:config) do
       <<-CONFIG
         filter {
@@ -137,19 +167,15 @@ describe LogStash::Filters::Rest do
     end
 
     sample('message' => '10') do
-      expect(subject).to include('rest')
-      expect(subject['rest'][0]).to include('userId')
-      expect(subject['rest'][0]['userId']).to eq(10)
-      expect(subject['rest']).to_not include('fallback')
-    end
-    sample('message' => '9') do
-      expect(subject).to include('rest')
-      expect(subject['rest'][0]).to include('userId')
-      expect(subject['rest'][0]['userId']).to eq(9)
-      expect(subject['rest']).to_not include('fallback')
+      expect(subject).to include(target)
+      expect(subject[target][0]).to include('userId')
+      expect(subject[target][0]['userId']).to eq(event[0]['message'].to_i)
+      expect(subject[target]).to_not include('fallback')
     end
   end
-  describe 'Set to Rest Filter Post with params' do
+  describe 'post json with params' do
+    let(:userId) { 42 }
+    let(:target) { 'rest' }
     let(:config) do
       <<-CONFIG
         filter {
@@ -160,7 +186,7 @@ describe LogStash::Filters::Rest do
               params => {
                 title => 'foo'
                 body => 'bar'
-                userId => 42
+                userId => #{userId}
               }
               headers => {
                 'Content-Type' => 'application/json'
@@ -173,13 +199,14 @@ describe LogStash::Filters::Rest do
     end
 
     sample('message' => 'some text') do
-      expect(subject).to include('rest')
-      expect(subject['rest']).to include('id')
-      expect(subject['rest']['userId']).to eq(42)
-      expect(subject['rest']).to_not include('fallback')
+      expect(subject).to include(target)
+      expect(subject[target]).to include('id')
+      expect(subject[target]['userId']).to eq(userId)
+      expect(subject[target]).to_not include('fallback')
     end
   end
-  describe 'Set to Rest Filter Post with params sprintf' do
+  describe 'post json with params sprintf' do
+    let(:target) { 'rest' }
     let(:config) do
       <<-CONFIG
         filter {
@@ -204,19 +231,21 @@ describe LogStash::Filters::Rest do
     end
 
     sample('message' => '42') do
-      expect(subject).to include('rest')
-      expect(subject['rest']).to include('id')
-      expect(subject['rest']['userId']).to eq(42)
-      expect(subject['rest']).to_not include('fallback')
+      expect(subject).to include(target)
+      expect(subject[target]).to include('id')
+      expect(subject[target]['userId']).to eq(event[0]['message'].to_i)
+      expect(subject[target]).to_not include('fallback')
     end
   end
-  describe 'Fallback' do
+  describe 'get json fallback' do
+    let(:userId) { 0 }
+    let(:target) { 'rest' }
     let(:config) do
       <<-CONFIG
         filter {
           rest {
             request => {
-              url => 'http://jsonplaceholder.typicode.com/users/0'
+              url => "http://jsonplaceholder.typicode.com/users/#{userId}"
             }
             json => true
             fallback => {
@@ -229,19 +258,21 @@ describe LogStash::Filters::Rest do
     end
 
     sample('message' => 'some text') do
-      expect(subject).to include('rest')
-      expect(subject['rest']).to include('fallback1')
-      expect(subject['rest']).to include('fallback2')
-      expect(subject['rest']).to_not include('id')
+      expect(subject).to include(target)
+      expect(subject[target]).to include('fallback1')
+      expect(subject[target]).to include('fallback2')
+      expect(subject[target]).to_not include('id')
     end
   end
-  describe 'Fallback empty target' do
+  describe 'get json fallback with empty target' do
+    let(:userId) { 0 }
+    let(:target) { 'rest' }
     let(:config) do
       <<-CONFIG
         filter {
           rest {
             request => {
-              url => 'http://jsonplaceholder.typicode.com/users/0'
+              url => "http://jsonplaceholder.typicode.com/users/#{userId}"
             }
             json => true
             target => ''
@@ -255,19 +286,21 @@ describe LogStash::Filters::Rest do
     end
 
     sample('message' => 'some text') do
-      expect(subject).to_not include('rest')
+      expect(subject).to_not include(target)
       expect(subject).to include('fallback1')
       expect(subject).to include('fallback2')
       expect(subject).to_not include('id')
     end
   end
-  describe 'Empty target' do
+  describe 'get json empty target' do
+    let(:userId) { 1 }
+    let(:target) { 'rest' }
     let(:config) do
       <<-CONFIG
         filter {
           rest {
             request => {
-              url => 'http://jsonplaceholder.typicode.com/users/1'
+              url => "http://jsonplaceholder.typicode.com/users/#{userId}"
             }
             json => true
             target => ''
@@ -277,7 +310,9 @@ describe LogStash::Filters::Rest do
     end
 
     sample('message' => 'some text') do
+      expect(subject).to_not include(target)
       expect(subject).to include('id')
+      expect(subject['id']).to eq(userId)
       expect(subject).to_not include('fallback')
     end
   end
